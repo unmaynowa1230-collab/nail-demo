@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>MELLO — 原宿の路地裏ネイルサロン</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="description" content="MELLO — 原宿駅徒歩4分、20代女性のためのトレンドネイルサロン。" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  html, body { margin: 0; padding: 0; background: #FFF8F9; overflow-x: hidden; }
+  * { box-sizing: border-box; }
+  .demo-stage { width: 100vw; overflow: hidden; position: relative; }
+  .demo-stage > .scaler { transform-origin: top left; will-change: transform; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+// designs-nail/common.jsx — shared helpers for the MELLO nail salon variants
+//
+// All three designs use these tokens. Style/palette/font is per-variation.
+
+// ─── Verified nail-salon photo bank (15 IDs, all from Unsplash nail-art search) ───
+const NU = (id) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
+
+const NAIL_PHOTOS = {
+  // hero shots — bold, color-forward
+  hero: [
+    '1604902396830-aca29e19b067', // pink hand on pink bg
+    '1607779097040-26e80aa78e66', // pink/blue manicure on towel
+    '1736434518489-0eb84070017f', // hand holding flower (warm)
+    '1612887390768-fb02affea7a6', // peach soft manicure
+  ],
+  // hand portrait / soft close-up
+  hand: [
+    '1610992015762-45dca7fa3a85', // natural close-up
+    '1612887390768-fb02affea7a6', // peach manicure
+    '1736434518489-0eb84070017f', // hand+flower
+    '1604902396830-aca29e19b067', // pink on pink hand
+  ],
+  // nail art close-ups (colorful / patterned)
+  art: [
+    '1571290274554-6a2eaa771e5f', // rainbow nuance art
+    '1604654894610-df63bc536371', // gold-leaf dark
+    '1519014816548-bf5fe059798b', // red 'love letter' style
+    '1720343409646-960f6dcccae3', // textured artistic
+    '1604654894611-6973b376cbde', // black sparkle silver
+    '1688583417770-ff6cc18071dc', // opal pearlescent
+  ],
+  // pink-forward (great for color story)
+  pink: [
+    '1604902396830-aca29e19b067', // pink on pink
+    '1607779097040-26e80aa78e66', // pink + blue
+    '1612887390768-fb02affea7a6', // peach pink
+  ],
+  // service: someone getting nails done (treatment scene)
+  service: [
+    '1632345031435-8727f6897d53', // worker doing nails
+  ],
+  // product / interior
+  product: [
+    '1619607146034-5a05296c8f9a', // wall of polish bottles
+  ],
+  // foot / pedicure
+  foot: [
+    '1610992015762-45dca7fa3a85', // natural hand-feet
+  ],
+  // soft pastel (alt hero)
+  pastel: [
+    '1736434518489-0eb84070017f', // hand + flower autumn
+    '1618606679166-7f313aa5b26f', // silver ring
+    '1587729927069-ef3b7a5ab9b4', // black textile soft
+  ],
+};
+
+function _hash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function nailPhotoFor(label = '') {
+  const l = (label || '').toLowerCase();
+  let bucket = 'art';
+  if (/hero|main|key/.test(l)) bucket = 'hero';
+  else if (/pink|rose/.test(l)) bucket = 'pink';
+  else if (/service|working|technician|staff hand/.test(l)) bucket = 'service';
+  else if (/polish|product|bottle|interior|wall|shelf/.test(l)) bucket = 'product';
+  else if (/foot|pedi/.test(l)) bucket = 'foot';
+  else if (/hand|portrait|finger/.test(l)) bucket = 'hand';
+  else if (/pastel|soft|natural/.test(l)) bucket = 'pastel';
+  else if (/art|color|design|nuance|gradation/.test(l)) bucket = 'art';
+  const arr = NAIL_PHOTOS[bucket] || NAIL_PHOTOS.art;
+  const id = arr[_hash(label) % arr.length];
+  return NU(id);
+}
+
+// ─── NPH: nail placeholder with image fallback ───
+function NPH({ label, w, h, ratio, style = {}, src, noPhoto, hue = 340, light = 90 }) {
+  const [failed, setFailed] = React.useState(false);
+  const photo = src || (noPhoto ? null : nailPhotoFor(label));
+  const bg1 = `oklch(${light}% 0.04 ${hue})`;
+  const bg2 = `oklch(${light - 4}% 0.04 ${hue})`;
+  const wrap = {
+    width: w || '100%',
+    height: h || (ratio ? undefined : '100%'),
+    aspectRatio: ratio,
+    position: 'relative',
+    overflow: 'hidden',
+    background: `repeating-linear-gradient(135deg, ${bg1} 0 18px, ${bg2} 18px 36px)`,
+    ...style,
+  };
+  if (!photo || failed) {
+    return (
+      <div style={{ ...wrap, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: `oklch(${light - 35}% 0.06 ${hue})`,
+        fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, letterSpacing: 0.6,
+        textTransform: 'uppercase', textAlign: 'center', padding: 12 }}>
+        <span style={{ opacity: 0.8 }}>{label}</span>
+      </div>
+    );
+  }
+  return (
+    <div style={wrap}>
+      <img src={photo} alt={label} onError={() => setFailed(true)}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    </div>
+  );
+}
+
+// ─── Salon copy ───
+const NSALON = {
+  name: 'MELLO',
+  nameJa: 'メロ',
+  tagline: '指先から、毎日きげん。',
+  desc: '渋谷の路地裏、20代女の子のための小さなネイルサロン。\nトレンドのデザインを、まいにち通いやすい価格で。',
+  address: '東京都渋谷区神宮前4-XX-X  MELLO Building 3F',
+  phone: '03-XXXX-XXXX',
+  hours: '11:00 – 21:00 / 不定休',
+  station: '原宿駅 徒歩4分 / 明治神宮前駅 徒歩3分',
+};
+
+const NNAV = [
+  { id: 'about', label: 'About', ja: 'サロンについて' },
+  { id: 'menu', label: 'Menu', ja: 'メニュー' },
+  { id: 'staff', label: 'Staff', ja: 'スタッフ' },
+  { id: 'gallery', label: 'Gallery', ja: 'デザイン集' },
+  { id: 'access', label: 'Access', ja: 'アクセス' },
+  { id: 'faq', label: 'FAQ', ja: 'よくある質問' },
+];
+
+const NMENU = [
+  {
+    id: 'one',
+    title: 'ジェルワンカラー',
+    en: 'One Color Gel',
+    icon: '◯',
+    desc: '定番の単色ジェル。100色以上のカラーから選べます。',
+    long: '剝がれにくく、自然な厚みで仕上げる王道ジェル。トレンドのくすみカラーやニュアンスカラーも豊富。',
+    times: [
+      { time: '60分', price: '¥6,500' },
+      { time: 'オフ込み', price: '¥8,000' },
+    ],
+  },
+  {
+    id: 'grad',
+    title: 'グラデーション',
+    en: 'Gradation',
+    icon: '◐',
+    desc: '爪先に向かってじんわり色が変わる、上品な仕上がり。',
+    long: '肌なじみのいいヌーディなグラデから、攻めの蛍光色まで。爪を長くきれいに見せたい方に。',
+    times: [
+      { time: '60分', price: '¥7,500' },
+      { time: 'オフ込み', price: '¥9,000' },
+    ],
+  },
+  {
+    id: 'art',
+    title: 'アートコース',
+    en: 'Art Course',
+    icon: '✻',
+    desc: 'マグネット・ミラー・ニュアンス・キャラまで。',
+    long: 'パーツ・ストーン・ホロ使い放題、デザイン無制限。インスタで見つけたデザイン持ち込みもOKです。',
+    times: [
+      { time: '90分', price: '¥9,800' },
+      { time: '120分', price: '¥12,800' },
+      { time: 'オフ込み', price: '¥11,300〜' },
+    ],
+  },
+  {
+    id: 'foot',
+    title: 'フットネイル',
+    en: 'Foot Nail',
+    icon: '✤',
+    desc: 'サンダル映え抜群のフットケア＆ジェル。',
+    long: '角質ケア＋ジェルカラーのセット。夏前のご予約が混み合います。',
+    times: [
+      { time: '60分', price: '¥8,500' },
+      { time: 'アート込み', price: '¥10,500' },
+    ],
+  },
+];
+
+const NSTAFF = [
+  { name: 'AMI', ja: 'あみ', role: 'Owner / Nailist', years: '経験8年', spec: 'ニュアンス・くすみカラー', insta: '@mello.ami', cute: '甘めデザインが得意' },
+  { name: 'YUKA', ja: 'ゆか', role: 'Senior Nailist', years: '経験5年', spec: 'マグネット・ミラー', insta: '@mello.yuka', cute: 'トレンド大好き' },
+  { name: 'KOTONE', ja: 'ことね', role: 'Nailist', years: '経験3年', spec: 'キャラ・3Dアート', insta: '@mello.kotone', cute: 'イラスト得意です' },
+];
+
+const NFAQ = [
+  { q: '当日予約は可能ですか？', a: '空き状況によって可能です。お電話または公式LINEからお問い合わせください。' },
+  { q: 'デザインの持ち込みはできますか？', a: 'もちろんOKです！Instagramや雑誌など、お持ちのイメージをそのままお見せください。' },
+  { q: '他店でつけたジェルのオフだけお願いできますか？', a: '可能です。オフのみは¥2,000で承っております。' },
+  { q: '学割はありますか？', a: 'はい、平日来店で10%OFFになる学生割引があります。学生証をご提示ください。' },
+  { q: '駐車場はありますか？', a: '近隣のコインパーキングをご利用ください（一部上限料金をサロンで負担いたします）。' },
+];
+
+const NGALLERY = [
+  { label: 'cherry pop', color: 'pink' },
+  { label: 'milk magnet', color: 'pink' },
+  { label: 'flower trip', color: 'art' },
+  { label: 'mirror chrome', color: 'art' },
+  { label: 'baby gradation', color: 'pastel' },
+  { label: 'core glitter', color: 'art' },
+  { label: 'french twist', color: 'pink' },
+  { label: 'midnight bloom', color: 'art' },
+];
+
+function nailSmoothScroll(rootEl, id) {
+  if (!rootEl) return;
+  const tgt = rootEl.querySelector('#' + id);
+  if (!tgt) return;
+  const top = tgt.getBoundingClientRect().top - rootEl.getBoundingClientRect().top + rootEl.scrollTop - 8;
+  rootEl.scrollTo({ top, behavior: 'smooth' });
+}
+
+Object.assign(window, {
+  NPH, NSALON, NNAV, NMENU, NSTAFF, NFAQ, NGALLERY, nailSmoothScroll,
+});
+
+</script>
+<script type="text/babel" data-presets="env,react">
+// C案 — Y2K Street Pop
+// hot pink + lime + deep purple, sticker graphics, bold heavy type
+
+const NC = {
+  bg: '#FFF8F9',           // very pale pink-white
+  bgPink: '#FFD9E5',
+  primary: '#FF1F8E',      // hot pink
+  primaryDeep: '#E60D72',
+  lime: '#C5F73C',         // electric lime accent
+  purple: '#2D1B47',       // deep purple
+  fg: '#2D1B47',
+  fgMid: '#5D4778',
+  cream: '#FFFFFF',
+  yellow: '#FFE34F',
+  display: '"Bricolage Grotesque", "Archivo Black", "Space Grotesk", sans-serif',
+  sans: '"Space Grotesk", system-ui, sans-serif',
+  ja: '"Noto Sans JP", system-ui, sans-serif',
+};
+
+// ─── sticker badge ───
+const NC_Sticker = ({ children, color = NC.lime, rotate = -8, style }) => (
+  <div style={{
+    display: 'inline-flex', alignItems: 'center', gap: 8,
+    padding: '8px 18px', background: color, color: NC.purple,
+    fontFamily: NC.sans, fontSize: 12, fontWeight: 700, letterSpacing: 1.5,
+    textTransform: 'uppercase', borderRadius: 999,
+    border: '2px solid ' + NC.purple, boxShadow: '3px 3px 0 ' + NC.purple,
+    transform: `rotate(${rotate}deg)`, ...style,
+  }}>{children}</div>
+);
+
+const NC_Star = ({ size = 16, color = NC.lime, style }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" style={style}>
+    <path d="M12 0 L 14 9 L 23 9 L 15.5 14.5 L 18 23 L 12 17.5 L 6 23 L 8.5 14.5 L 1 9 L 10 9 Z"
+      fill={color} stroke={NC.purple} strokeWidth="1.5" />
+  </svg>
+);
+
+// ─── DESKTOP ───
+function NCDesktop() {
+  const rootRef = React.useRef(null);
+  const [activeMenu, setActiveMenu] = React.useState(0);
+  const [openFAQ, setOpenFAQ] = React.useState(0);
+
+  return (
+    <div ref={rootRef} style={{
+      width: 1440, fontFamily: NC.ja, background: NC.bg, color: NC.fg, position: 'relative', overflow: 'hidden',
+    }}>
+      {/* nav */}
+      <div style={{
+        position: 'absolute', top: 20, left: 24, right: 24, zIndex: 20,
+        padding: '12px 20px', background: NC.cream, borderRadius: 999,
+        border: '2px solid ' + NC.purple, boxShadow: '4px 4px 0 ' + NC.purple,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontFamily: NC.display, fontSize: 32, fontWeight: 800, color: NC.primary, letterSpacing: -1, lineHeight: 1 }}>MELLO</span>
+          <span style={{ background: NC.lime, padding: '4px 10px', borderRadius: 999, fontFamily: NC.sans, fontSize: 10, fontWeight: 700, color: NC.purple, letterSpacing: 1, border: '1.5px solid ' + NC.purple }}>NEW!</span>
+        </div>
+        <nav style={{ display: 'flex', gap: 24 }}>
+          {NNAV.map((n) => (
+            <a key={n.id} href={'#' + n.id}
+              onClick={(e) => { e.preventDefault(); nailSmoothScroll(rootRef.current, n.id); }}
+              style={{ fontFamily: NC.sans, fontSize: 13, fontWeight: 700, color: NC.purple, textDecoration: 'none', letterSpacing: 0.5 }}>
+              {n.label}
+            </a>
+          ))}
+        </nav>
+        <button style={{
+          background: NC.primary, border: '2px solid ' + NC.purple, color: NC.cream,
+          padding: '10px 22px', fontFamily: NC.sans, fontSize: 13, fontWeight: 800, letterSpacing: 1,
+          cursor: 'pointer', borderRadius: 999, boxShadow: '3px 3px 0 ' + NC.purple,
+          textTransform: 'uppercase',
+        }}>BOOK NOW</button>
+      </div>
+
+      {/* HERO — wild bold typography */}
+      <section style={{ padding: '120px 60px 80px', position: 'relative' }}>
+        {/* decorative stars and circles */}
+        <NC_Star size={50} style={{ position: 'absolute', top: 130, right: 80 }} />
+        <NC_Star size={32} color={NC.primary} style={{ position: 'absolute', bottom: 100, left: 100 }} />
+        <div style={{ position: 'absolute', top: 200, left: 60, width: 60, height: 60, borderRadius: '50%', background: NC.yellow, border: '2px solid ' + NC.purple }} />
+
+        <div style={{ textAlign: 'center', position: 'relative' }}>
+          <NC_Sticker color={NC.lime} rotate={-3} style={{ marginBottom: 30 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 4, background: NC.purple }} />
+            原宿駅 徒歩4分
+          </NC_Sticker>
+          <h1 style={{
+            fontFamily: NC.display, fontWeight: 800, color: NC.purple, margin: 0,
+            fontSize: 220, lineHeight: 0.85, letterSpacing: -8,
+          }}>
+            CUTE<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>nails,</span><br/>everyday.
+          </h1>
+          <div style={{ marginTop: 36, fontFamily: NC.ja, fontSize: 18, color: NC.fgMid, fontWeight: 500, letterSpacing: 2 }}>
+            原宿の路地裏ネイルサロン MELLO ・ メロ
+          </div>
+          <div style={{ marginTop: 40, display: 'flex', gap: 14, justifyContent: 'center' }}>
+            <button style={{
+              background: NC.primary, border: '2.5px solid ' + NC.purple, color: NC.cream,
+              padding: '18px 36px', fontFamily: NC.sans, fontSize: 14, fontWeight: 800, letterSpacing: 1,
+              cursor: 'pointer', borderRadius: 999, boxShadow: '5px 5px 0 ' + NC.purple,
+              textTransform: 'uppercase',
+            }}>BOOK YOUR SEAT →</button>
+            <button style={{
+              background: NC.lime, border: '2.5px solid ' + NC.purple, color: NC.purple,
+              padding: '18px 36px', fontFamily: NC.sans, fontSize: 14, fontWeight: 800, letterSpacing: 1,
+              cursor: 'pointer', borderRadius: 999, boxShadow: '5px 5px 0 ' + NC.purple,
+              textTransform: 'uppercase',
+            }}>SEE MENU</button>
+          </div>
+        </div>
+
+        {/* photo strip below */}
+        <div style={{ marginTop: 70, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          {[
+            { label: 'pink magnet', tag: '#trending' },
+            { label: 'milk french', tag: '#new' },
+            { label: 'art rainbow', tag: '#bold' },
+            { label: 'pearlescent', tag: '#chrome' },
+          ].map((p, i) => (
+            <div key={i} style={{ position: 'relative' }}>
+              <div style={{
+                border: '2.5px solid ' + NC.purple, borderRadius: 20, overflow: 'hidden',
+                boxShadow: '5px 5px 0 ' + NC.purple, aspectRatio: '4/5',
+                transform: 'rotate(' + (i % 2 ? 1.5 : -1.5) + 'deg)',
+              }}>
+                <NPH label={p.label} />
+              </div>
+              <div style={{
+                position: 'absolute', top: 14, left: 14, padding: '4px 10px',
+                background: i % 2 ? NC.lime : NC.yellow, borderRadius: 999,
+                fontFamily: NC.sans, fontSize: 11, fontWeight: 700, color: NC.purple,
+                border: '1.5px solid ' + NC.purple,
+              }}>{p.tag}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* marquee */}
+      <section style={{
+        background: NC.primary, color: NC.cream, padding: '20px 0', overflow: 'hidden',
+        borderTop: '2.5px solid ' + NC.purple, borderBottom: '2.5px solid ' + NC.purple,
+      }}>
+        <div style={{ display: 'flex', gap: 40, whiteSpace: 'nowrap', fontFamily: NC.display, fontSize: 36, fontWeight: 800, letterSpacing: -1 }}>
+          {Array(2).fill(0).map((_, n) => [
+            'NEW SPRING COLORS', '✦', 'MAGNET / MIRROR / NUANCE', '✦', '20% OFF STUDENTS', '✦', 'BRING YOUR OWN VIBES', '✦',
+          ]).flat().map((s, i) => <span key={i}>{s}</span>)}
+        </div>
+      </section>
+
+      {/* ABOUT — chunky cards */}
+      <section id="about" style={{ padding: '100px 60px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 60, alignItems: 'center' }}>
+          <div>
+            <NC_Sticker color={NC.yellow} rotate={-4} style={{ marginBottom: 24 }}>about us</NC_Sticker>
+            <h2 style={{
+              fontFamily: NC.display, fontWeight: 800, fontSize: 92, lineHeight: 0.95, letterSpacing: -3, color: NC.purple, margin: 0,
+            }}>20代の<span style={{ color: NC.primary }}>"今"</span>に、<br/>合うネイル。</h2>
+            <p style={{ fontFamily: NC.ja, fontSize: 15, lineHeight: 2, color: NC.fgMid, marginTop: 28, fontWeight: 500, letterSpacing: 1, maxWidth: 460 }}>
+              MELLO は、原宿の路地裏3階に2024年オープン。<br/>
+              トレンドのデザインを、まいにち通いやすい価格で。<br/>
+              "あ、これ可愛い！" を全力でサポートします。
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+            {[
+              { n: '01', t: 'PRIVATE BOOTH', d: '半個室の落ち着いた空間', color: NC.lime },
+              { n: '02', t: 'INSTA OK', d: 'デザイン持ち込み大歓迎', color: NC.cream },
+              { n: '03', t: 'STUDENT 10% OFF', d: '平日限定の学生割引', color: NC.yellow },
+              { n: '04', t: '4 MIN STATION', d: '原宿駅から徒歩4分', color: NC.cream },
+            ].map((c, i) => (
+              <div key={i} style={{
+                background: c.color, padding: 24, borderRadius: 20,
+                border: '2.5px solid ' + NC.purple, boxShadow: '4px 4px 0 ' + NC.purple,
+                position: 'relative',
+              }}>
+                <div style={{
+                  position: 'absolute', top: -12, right: -12, width: 40, height: 40, borderRadius: 20,
+                  background: NC.primary, color: NC.cream, fontFamily: NC.sans, fontSize: 14, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2.5px solid ' + NC.purple,
+                }}>{c.n}</div>
+                <div style={{ fontFamily: NC.display, fontSize: 22, fontWeight: 800, color: NC.purple, marginBottom: 8, letterSpacing: -0.5 }}>{c.t}</div>
+                <div style={{ fontFamily: NC.ja, fontSize: 13, color: NC.fgMid, lineHeight: 1.75 }}>{c.d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* MENU — big blocks */}
+      <section id="menu" style={{ padding: '80px 60px', background: NC.bgPink, position: 'relative' }}>
+        <NC_Star size={60} style={{ position: 'absolute', top: 80, right: 60, opacity: 0.6 }} />
+        <div style={{ textAlign: 'center', marginBottom: 60 }}>
+          <NC_Sticker color={NC.cream} rotate={2} style={{ marginBottom: 20 }}>menu &amp; price</NC_Sticker>
+          <h2 style={{ fontFamily: NC.display, fontSize: 120, fontWeight: 800, letterSpacing: -5, color: NC.purple, margin: 0, lineHeight: 0.9 }}>
+            PICK<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>your vibe.</span>
+          </h2>
+        </div>
+
+        {/* tab pills */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 40, flexWrap: 'wrap' }}>
+          {NMENU.map((m, i) => (
+            <button key={m.id} onClick={() => setActiveMenu(i)} style={{
+              background: activeMenu === i ? NC.purple : NC.cream,
+              color: activeMenu === i ? NC.cream : NC.purple,
+              border: '2.5px solid ' + NC.purple, padding: '12px 22px',
+              borderRadius: 999, fontFamily: NC.sans, fontSize: 13, fontWeight: 800, cursor: 'pointer',
+              letterSpacing: 1, textTransform: 'uppercase',
+              boxShadow: activeMenu === i ? 'none' : '3px 3px 0 ' + NC.purple,
+              transition: 'all .25s',
+            }}>{m.en}</button>
+          ))}
+        </div>
+
+        <div style={{
+          background: NC.cream, borderRadius: 32, padding: 40,
+          border: '2.5px solid ' + NC.purple, boxShadow: '8px 8px 0 ' + NC.purple,
+          display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 50, alignItems: 'center', position: 'relative',
+        }}>
+          <div style={{
+            position: 'absolute', top: -20, left: 40, padding: '8px 16px',
+            background: NC.lime, border: '2.5px solid ' + NC.purple, borderRadius: 999,
+            fontFamily: NC.sans, fontSize: 12, fontWeight: 800, color: NC.purple, letterSpacing: 1,
+            transform: 'rotate(-3deg)',
+          }}>0{activeMenu + 1} / 0{NMENU.length}</div>
+          <div style={{ borderRadius: 24, overflow: 'hidden', height: 440, border: '2.5px solid ' + NC.purple }}>
+            <NPH label={NMENU[activeMenu].en + ' nail art'} />
+          </div>
+          <div>
+            <div style={{ fontFamily: NC.sans, fontSize: 13, color: NC.primary, fontWeight: 800, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 8 }}>{NMENU[activeMenu].en}</div>
+            <h3 style={{ fontFamily: NC.display, fontWeight: 800, fontSize: 56, margin: 0, color: NC.purple, lineHeight: 1, letterSpacing: -1.5 }}>{NMENU[activeMenu].title}</h3>
+            <p style={{ fontFamily: NC.ja, fontSize: 14, lineHeight: 1.95, color: NC.fgMid, marginTop: 22, fontWeight: 500 }}>{NMENU[activeMenu].long}</p>
+            <div style={{ marginTop: 28, display: 'grid', gap: 10 }}>
+              {NMENU[activeMenu].times.map((t, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '16px 20px', background: NC.bg, borderRadius: 14, border: '2px solid ' + NC.purple,
+                }}>
+                  <div style={{ fontFamily: NC.ja, fontSize: 14, fontWeight: 600 }}>{t.time}</div>
+                  <div style={{ fontFamily: NC.display, fontSize: 28, fontWeight: 800, color: NC.primary, letterSpacing: -1 }}>{t.price}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* STAFF */}
+      <section id="staff" style={{ padding: '100px 60px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 50 }}>
+          <div>
+            <NC_Sticker color={NC.lime} rotate={-3} style={{ marginBottom: 20 }}>meet the crew</NC_Sticker>
+            <h2 style={{ fontFamily: NC.display, fontSize: 100, fontWeight: 800, letterSpacing: -4, color: NC.purple, margin: 0, lineHeight: 0.95 }}>
+              THE<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>CREW.</span>
+            </h2>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+          {NSTAFF.map((p, i) => (
+            <div key={i} style={{
+              background: NC.cream, padding: 24, borderRadius: 28,
+              border: '2.5px solid ' + NC.purple, boxShadow: '6px 6px 0 ' + NC.purple,
+              position: 'relative', transform: 'rotate(' + (i === 1 ? 0 : (i === 0 ? -1 : 1)) + 'deg)',
+            }}>
+              <div style={{
+                position: 'absolute', top: -16, left: 18, padding: '6px 14px',
+                background: NC.primary, color: NC.cream, borderRadius: 999, fontFamily: NC.sans, fontSize: 12, fontWeight: 800, letterSpacing: 1,
+                border: '2px solid ' + NC.purple,
+              }}>{p.insta}</div>
+              <div style={{ borderRadius: 22, overflow: 'hidden', aspectRatio: '4/5', border: '2.5px solid ' + NC.purple, position: 'relative' }}>
+                <NPH label={'hand portrait ' + p.name} />
+              </div>
+              <div style={{ marginTop: 20, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, fontFamily: NC.display, fontSize: 36, fontWeight: 800, color: NC.purple, letterSpacing: -1 }}>{p.name}</h3>
+                <div style={{ fontFamily: NC.sans, fontSize: 11, color: NC.primary, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>{p.role}</div>
+              </div>
+              <div style={{ fontFamily: NC.ja, fontSize: 12, color: NC.fgMid, marginTop: 4 }}>{p.ja}・{p.years}</div>
+              <div style={{ marginTop: 14, padding: '8px 14px', background: NC.lime, borderRadius: 999, fontFamily: NC.sans, fontSize: 11, fontWeight: 700, color: NC.purple, border: '1.5px solid ' + NC.purple, display: 'inline-flex', alignItems: 'center', gap: 6 }}>得意: {p.spec}</div>
+              <div style={{ fontFamily: NC.ja, fontSize: 13, color: NC.fgMid, marginTop: 14, lineHeight: 1.6, fontStyle: 'italic' }}>"{p.cute}"</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* GALLERY */}
+      <section id="gallery" style={{ padding: '100px 60px', background: NC.purple, color: NC.cream, position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 50 }}>
+          <div>
+            <NC_Sticker color={NC.lime} rotate={3} style={{ marginBottom: 20 }}>design archive</NC_Sticker>
+            <h2 style={{ fontFamily: NC.display, fontSize: 100, fontWeight: 800, letterSpacing: -4, color: NC.cream, margin: 0, lineHeight: 0.95 }}>
+              VIBE<br/><span style={{ color: NC.lime, fontStyle: 'italic' }}>archive.</span>
+            </h2>
+          </div>
+          <div style={{ fontFamily: NC.sans, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 2 }}>120+ DESIGNS · WEEKLY UPDATE</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+          {NGALLERY.map((g, i) => (
+            <div key={i} style={{ position: 'relative' }}>
+              <div style={{
+                borderRadius: 20, overflow: 'hidden', aspectRatio: '4/5',
+                border: '2.5px solid ' + NC.cream, boxShadow: '5px 5px 0 ' + NC.lime,
+                transform: 'rotate(' + (i % 2 ? 1 : -1) + 'deg)',
+              }}>
+                <NPH label={g.color + ' nail ' + g.label} />
+              </div>
+              <div style={{
+                position: 'absolute', top: 12, right: 12, padding: '4px 12px',
+                background: NC.primary, color: NC.cream, fontFamily: NC.sans, fontSize: 11, fontWeight: 800, letterSpacing: 1,
+                borderRadius: 999, border: '1.5px solid ' + NC.cream,
+              }}>#{g.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" style={{ padding: '100px 60px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 50 }}>
+          <NC_Sticker color={NC.yellow} rotate={-3} style={{ marginBottom: 20 }}>questions?</NC_Sticker>
+          <h2 style={{ fontFamily: NC.display, fontSize: 100, fontWeight: 800, letterSpacing: -4, color: NC.purple, margin: 0, lineHeight: 1 }}>
+            <span style={{ color: NC.primary, fontStyle: 'italic' }}>FAQ.</span>
+          </h2>
+        </div>
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gap: 14 }}>
+          {NFAQ.map((f, i) => (
+            <button key={i} onClick={() => setOpenFAQ(openFAQ === i ? -1 : i)} style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              background: NC.cream, border: '2.5px solid ' + NC.purple, borderRadius: 18,
+              padding: '22px 26px', cursor: 'pointer',
+              boxShadow: openFAQ === i ? '5px 5px 0 ' + NC.primary : '5px 5px 0 ' + NC.purple,
+              transition: 'box-shadow .2s',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: 1 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 22, background: NC.primary, color: NC.cream,
+                    fontFamily: NC.display, fontSize: 14, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    border: '2px solid ' + NC.purple,
+                  }}>Q{i + 1}</div>
+                  <span style={{ fontFamily: NC.ja, fontSize: 16, fontWeight: 600 }}>{f.q}</span>
+                </div>
+                <span style={{ fontFamily: NC.sans, fontSize: 26, color: NC.primary, fontWeight: 700 }}>{openFAQ === i ? '−' : '+'}</span>
+              </div>
+              {openFAQ === i && (
+                <div style={{ fontFamily: NC.ja, fontSize: 14, lineHeight: 1.95, color: NC.fgMid, marginTop: 16, paddingLeft: 62 }}>{f.a}</div>
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ACCESS */}
+      <section id="access" style={{ padding: '100px 60px', background: NC.bgPink }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }}>
+          <div>
+            <NC_Sticker color={NC.cream} rotate={-3} style={{ marginBottom: 20 }}>come see us</NC_Sticker>
+            <h2 style={{ fontFamily: NC.display, fontSize: 100, fontWeight: 800, letterSpacing: -4, color: NC.purple, margin: 0, lineHeight: 0.95 }}>
+              ACCESS<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>map.</span>
+            </h2>
+            <div style={{ marginTop: 36, display: 'grid', gap: 12 }}>
+              {[
+                ['住所', NSALON.address],
+                ['駅', NSALON.station],
+                ['電話', NSALON.phone],
+                ['営業時間', NSALON.hours],
+              ].map(([k, v], i) => (
+                <div key={i} style={{
+                  padding: '18px 22px', background: NC.cream, borderRadius: 16,
+                  border: '2px solid ' + NC.purple, display: 'grid', gridTemplateColumns: '90px 1fr', gap: 20,
+                }}>
+                  <div style={{ fontFamily: NC.sans, fontSize: 12, fontWeight: 800, color: NC.primary, letterSpacing: 1, textTransform: 'uppercase' }}>{k}</div>
+                  <div style={{ fontFamily: NC.ja, fontSize: 13, lineHeight: 1.7, color: NC.purple }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ borderRadius: 28, overflow: 'hidden', height: 540, border: '2.5px solid ' + NC.purple, boxShadow: '8px 8px 0 ' + NC.purple, transform: 'rotate(-1deg)' }}>
+            <NPH label="polish wall interior" />
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{ padding: '60px 60px 100px' }}>
+        <div style={{
+          background: NC.primary, color: NC.cream, borderRadius: 40, padding: '80px 60px',
+          border: '2.5px solid ' + NC.purple, boxShadow: '10px 10px 0 ' + NC.purple,
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <NC_Star size={80} color={NC.lime} style={{ position: 'absolute', top: 40, right: 80 }} />
+          <NC_Star size={50} color={NC.yellow} style={{ position: 'absolute', bottom: 80, right: 200 }} />
+          <div style={{ position: 'relative' }}>
+            <NC_Sticker color={NC.lime} rotate={-3} style={{ marginBottom: 24 }}>book your seat</NC_Sticker>
+            <h2 style={{ fontFamily: NC.display, fontSize: 140, fontWeight: 800, letterSpacing: -5, lineHeight: 0.9, margin: 0 }}>
+              LET'S<br/><span style={{ color: NC.lime, fontStyle: 'italic' }}>MELLO.</span>
+            </h2>
+            <div style={{ marginTop: 40, display: 'flex', gap: 14 }}>
+              <button style={{
+                background: NC.cream, border: '2.5px solid ' + NC.purple, color: NC.purple,
+                padding: '18px 32px', fontFamily: NC.sans, fontSize: 14, fontWeight: 800, letterSpacing: 1,
+                cursor: 'pointer', borderRadius: 999, boxShadow: '5px 5px 0 ' + NC.purple, textTransform: 'uppercase',
+              }}>Reserve online →</button>
+              <button style={{
+                background: NC.lime, border: '2.5px solid ' + NC.purple, color: NC.purple,
+                padding: '18px 32px', fontFamily: NC.sans, fontSize: 14, fontWeight: 800, letterSpacing: 1,
+                cursor: 'pointer', borderRadius: 999, boxShadow: '5px 5px 0 ' + NC.purple, textTransform: 'uppercase',
+              }}>LINEで予約</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{ padding: '60px 60px 30px', background: NC.purple, color: NC.cream }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 60, paddingBottom: 40, borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
+          <div>
+            <div style={{ fontFamily: NC.display, fontSize: 40, fontWeight: 800, color: NC.lime, letterSpacing: -1 }}>MELLO</div>
+            <div style={{ fontFamily: NC.sans, fontSize: 11, letterSpacing: 2.5, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginTop: 4 }}>nail salon · harajuku · since 2024</div>
+            <div style={{ fontFamily: NC.ja, fontSize: 12, lineHeight: 2, color: 'rgba(255,255,255,0.75)', marginTop: 24 }}>{NSALON.address}<br/>{NSALON.phone}</div>
+          </div>
+          {[
+            { t: 'MENU', items: NMENU.map((m) => m.en) },
+            { t: 'ABOUT', items: ['Concept', 'Crew', 'Gallery', 'FAQ'] },
+            { t: 'INFO', items: ['Book online', 'LINE', 'Access', 'Student 10%'] },
+          ].map((c, i) => (
+            <div key={i}>
+              <div style={{ fontFamily: NC.sans, fontSize: 12, fontWeight: 800, color: NC.lime, letterSpacing: 2.5, marginBottom: 20 }}>{c.t}</div>
+              {c.items.map((x, j) => <div key={j} style={{ fontFamily: NC.ja, fontSize: 12, padding: '6px 0', color: 'rgba(255,255,255,0.75)' }}>{x}</div>)}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 28, fontFamily: NC.sans, fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: 1.5 }}>
+          <div>© 2026 MELLO · NAIL SALON</div>
+          <div>INSTAGRAM · LINE · TIKTOK · X</div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+window.NCDesktop = NCDesktop;
+window.NC = NC;
+window.NC_Sticker = NC_Sticker;
+window.NC_Star = NC_Star;
+
+</script>
+<script type="text/babel" data-presets="env,react">
+// C案 — Mobile (390 wide)
+function NCMobile() {
+  const [activeMenu, setActiveMenu] = React.useState(0);
+  const [openFAQ, setOpenFAQ] = React.useState(0);
+  const [drawer, setDrawer] = React.useState(false);
+
+  return (
+    <div style={{
+      width: 390, fontFamily: NC.ja, background: NC.bg, color: NC.fg, position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', top: 12, left: 12, right: 12, zIndex: 20,
+        padding: '10px 16px', background: NC.cream, borderRadius: 999,
+        border: '2px solid ' + NC.purple, boxShadow: '3px 3px 0 ' + NC.purple,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: NC.display, fontSize: 24, fontWeight: 800, color: NC.primary, lineHeight: 1, letterSpacing: -1 }}>MELLO</span>
+        </div>
+        <button onClick={() => setDrawer(true)} style={{
+          background: NC.lime, border: '2px solid ' + NC.purple, color: NC.purple,
+          padding: '6px 14px', borderRadius: 999, fontFamily: NC.sans, fontSize: 11, fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase',
+        }}>MENU</button>
+      </div>
+
+      {/* HERO */}
+      <section style={{ padding: '80px 20px 50px', textAlign: 'center', position: 'relative' }}>
+        <NC_Star size={32} style={{ position: 'absolute', top: 80, right: 30 }} />
+        <NC_Star size={22} color={NC.primary} style={{ position: 'absolute', bottom: 120, left: 20 }} />
+        <NC_Sticker color={NC.lime} rotate={-3} style={{ marginBottom: 20 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 3, background: NC.purple }} />
+          原宿駅 徒歩4分
+        </NC_Sticker>
+        <h1 style={{
+          fontFamily: NC.display, fontWeight: 800, color: NC.purple, margin: 0,
+          fontSize: 96, lineHeight: 0.85, letterSpacing: -4,
+        }}>CUTE<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>nails,</span><br/>everyday.</h1>
+        <div style={{ marginTop: 22, fontFamily: NC.ja, fontSize: 13, color: NC.fgMid, fontWeight: 500, letterSpacing: 2 }}>
+          原宿の路地裏ネイル ・ メロ
+        </div>
+        <div style={{ marginTop: 28, display: 'grid', gap: 10 }}>
+          <button style={{
+            background: NC.primary, border: '2.5px solid ' + NC.purple, color: NC.cream,
+            padding: '16px 24px', fontFamily: NC.sans, fontSize: 13, fontWeight: 800, letterSpacing: 1,
+            cursor: 'pointer', borderRadius: 999, boxShadow: '4px 4px 0 ' + NC.purple, textTransform: 'uppercase',
+          }}>BOOK YOUR SEAT →</button>
+          <button style={{
+            background: NC.lime, border: '2.5px solid ' + NC.purple, color: NC.purple,
+            padding: '16px 24px', fontFamily: NC.sans, fontSize: 13, fontWeight: 800, letterSpacing: 1,
+            cursor: 'pointer', borderRadius: 999, boxShadow: '4px 4px 0 ' + NC.purple, textTransform: 'uppercase',
+          }}>SEE MENU</button>
+        </div>
+
+        <div style={{ marginTop: 40, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            { label: 'pink magnet', tag: '#trending' },
+            { label: 'milk french', tag: '#new' },
+            { label: 'art rainbow', tag: '#bold' },
+            { label: 'pearlescent', tag: '#chrome' },
+          ].map((p, i) => (
+            <div key={i} style={{ position: 'relative' }}>
+              <div style={{
+                border: '2px solid ' + NC.purple, borderRadius: 14, overflow: 'hidden',
+                boxShadow: '3px 3px 0 ' + NC.purple, aspectRatio: '4/5',
+                transform: 'rotate(' + (i % 2 ? 1.5 : -1.5) + 'deg)',
+              }}>
+                <NPH label={p.label} />
+              </div>
+              <div style={{
+                position: 'absolute', top: 8, left: 8, padding: '3px 8px',
+                background: i % 2 ? NC.lime : NC.yellow, borderRadius: 999,
+                fontFamily: NC.sans, fontSize: 9, fontWeight: 700, color: NC.purple,
+                border: '1.5px solid ' + NC.purple,
+              }}>{p.tag}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{
+        background: NC.primary, color: NC.cream, padding: '14px 0', overflow: 'hidden',
+        borderTop: '2px solid ' + NC.purple, borderBottom: '2px solid ' + NC.purple,
+      }}>
+        <div style={{ display: 'flex', gap: 24, whiteSpace: 'nowrap', fontFamily: NC.display, fontSize: 22, fontWeight: 800, letterSpacing: -0.5, paddingLeft: 20 }}>
+          {['SPRING COLORS', '✦', '20% STUDENTS', '✦', 'INSTA OK', '✦', 'WALK-IN OK', '✦'].map((s, i) => <span key={i}>{s}</span>)}
+        </div>
+      </section>
+
+      <section id="about" style={{ padding: '70px 20px' }}>
+        <NC_Sticker color={NC.yellow} rotate={-3} style={{ marginBottom: 18 }}>about us</NC_Sticker>
+        <h2 style={{ fontFamily: NC.display, fontWeight: 800, fontSize: 52, lineHeight: 0.95, letterSpacing: -2, margin: 0 }}>
+          20代の<span style={{ color: NC.primary }}>"今"</span>に、<br/>合うネイル。
+        </h2>
+        <p style={{ fontFamily: NC.ja, fontSize: 13, lineHeight: 1.95, color: NC.fgMid, marginTop: 22, fontWeight: 500, letterSpacing: 1 }}>
+          原宿の路地裏3階に2024年オープン。トレンドのデザインを、まいにち通いやすい価格で。
+        </p>
+        <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            { n: '01', t: 'PRIVATE', color: NC.lime },
+            { n: '02', t: 'INSTA OK', color: NC.cream },
+            { n: '03', t: '学生 10%', color: NC.yellow },
+            { n: '04', t: '徒歩 4MIN', color: NC.cream },
+          ].map((c, i) => (
+            <div key={i} style={{ background: c.color, padding: 16, borderRadius: 16, border: '2px solid ' + NC.purple, boxShadow: '3px 3px 0 ' + NC.purple, position: 'relative' }}>
+              <div style={{ position: 'absolute', top: -10, right: -10, width: 28, height: 28, borderRadius: 14, background: NC.primary, color: NC.cream, fontFamily: NC.sans, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid ' + NC.purple }}>{c.n}</div>
+              <div style={{ fontFamily: NC.display, fontSize: 16, fontWeight: 800, letterSpacing: -0.5 }}>{c.t}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="menu" style={{ background: NC.bgPink, padding: '70px 20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 26 }}>
+          <NC_Sticker color={NC.cream} rotate={2} style={{ marginBottom: 16 }}>menu &amp; price</NC_Sticker>
+          <h2 style={{ fontFamily: NC.display, fontSize: 56, fontWeight: 800, letterSpacing: -2.5, margin: 0, lineHeight: 0.9 }}>
+            PICK<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>your vibe.</span>
+          </h2>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, overflowX: 'auto', paddingBottom: 4 }}>
+          {NMENU.map((m, i) => (
+            <button key={m.id} onClick={() => setActiveMenu(i)} style={{
+              flexShrink: 0, background: activeMenu === i ? NC.purple : NC.cream,
+              color: activeMenu === i ? NC.cream : NC.purple,
+              border: '2px solid ' + NC.purple, padding: '8px 16px', borderRadius: 999,
+              fontFamily: NC.sans, fontSize: 11, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'uppercase',
+              boxShadow: activeMenu === i ? 'none' : '2px 2px 0 ' + NC.purple,
+            }}>{m.en}</button>
+          ))}
+        </div>
+        <div style={{ background: NC.cream, borderRadius: 24, padding: 22, border: '2.5px solid ' + NC.purple, boxShadow: '5px 5px 0 ' + NC.purple }}>
+          <div style={{ borderRadius: 18, overflow: 'hidden', height: 220, border: '2px solid ' + NC.purple }}>
+            <NPH label={NMENU[activeMenu].en + ' nail art'} />
+          </div>
+          <div style={{ fontFamily: NC.sans, fontSize: 11, color: NC.primary, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', marginTop: 16 }}>{NMENU[activeMenu].en}</div>
+          <h3 style={{ fontFamily: NC.display, fontWeight: 800, fontSize: 34, margin: 0, marginTop: 2, letterSpacing: -1, lineHeight: 1.1 }}>{NMENU[activeMenu].title}</h3>
+          <p style={{ fontFamily: NC.ja, fontSize: 12, lineHeight: 1.85, color: NC.fgMid, marginTop: 12, fontWeight: 500 }}>{NMENU[activeMenu].long}</p>
+          <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
+            {NMENU[activeMenu].times.map((t, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: NC.bg, borderRadius: 12, border: '2px solid ' + NC.purple }}>
+                <div style={{ fontFamily: NC.ja, fontSize: 13, fontWeight: 600 }}>{t.time}</div>
+                <div style={{ fontFamily: NC.display, fontSize: 22, fontWeight: 800, color: NC.primary, letterSpacing: -0.5 }}>{t.price}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="staff" style={{ padding: '70px 20px' }}>
+        <NC_Sticker color={NC.lime} rotate={-3} style={{ marginBottom: 18 }}>meet the crew</NC_Sticker>
+        <h2 style={{ fontFamily: NC.display, fontSize: 56, fontWeight: 800, letterSpacing: -2.5, margin: 0, lineHeight: 0.95, marginBottom: 22 }}>
+          THE<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>CREW.</span>
+        </h2>
+        {NSTAFF.map((p, i) => (
+          <div key={i} style={{
+            background: NC.cream, padding: 16, borderRadius: 20, marginBottom: 14,
+            border: '2.5px solid ' + NC.purple, boxShadow: '4px 4px 0 ' + NC.purple,
+            display: 'grid', gridTemplateColumns: '120px 1fr', gap: 14, position: 'relative',
+          }}>
+            <div style={{ position: 'absolute', top: -10, left: 14, padding: '4px 10px', background: NC.primary, color: NC.cream, borderRadius: 999, fontFamily: NC.sans, fontSize: 10, fontWeight: 800, border: '1.5px solid ' + NC.purple }}>{p.insta}</div>
+            <div style={{ borderRadius: 14, overflow: 'hidden', aspectRatio: '4/5', border: '2px solid ' + NC.purple }}>
+              <NPH label={'hand portrait ' + p.name} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, fontFamily: NC.display, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>{p.name}</h3>
+                <div style={{ fontFamily: NC.sans, fontSize: 9, color: NC.primary, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase' }}>{p.role}</div>
+              </div>
+              <div style={{ fontFamily: NC.ja, fontSize: 11, color: NC.fgMid, marginTop: 2 }}>{p.ja}・{p.years}</div>
+              <div style={{ marginTop: 10, padding: '4px 10px', background: NC.lime, borderRadius: 999, fontFamily: NC.sans, fontSize: 10, fontWeight: 700, color: NC.purple, border: '1.5px solid ' + NC.purple, display: 'inline-block' }}>{p.spec}</div>
+              <div style={{ fontFamily: NC.ja, fontSize: 12, color: NC.fgMid, marginTop: 8, lineHeight: 1.5, fontStyle: 'italic' }}>"{p.cute}"</div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section id="gallery" style={{ padding: '70px 20px', background: NC.purple, color: NC.cream }}>
+        <NC_Sticker color={NC.lime} rotate={3} style={{ marginBottom: 18 }}>design archive</NC_Sticker>
+        <h2 style={{ fontFamily: NC.display, fontSize: 56, fontWeight: 800, letterSpacing: -2.5, color: NC.cream, margin: 0, lineHeight: 0.95, marginBottom: 22 }}>
+          VIBE<br/><span style={{ color: NC.lime, fontStyle: 'italic' }}>archive.</span>
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {NGALLERY.map((g, i) => (
+            <div key={i} style={{ position: 'relative' }}>
+              <div style={{ borderRadius: 14, overflow: 'hidden', aspectRatio: '4/5', border: '2px solid ' + NC.cream, boxShadow: '3px 3px 0 ' + NC.lime, transform: 'rotate(' + (i % 2 ? 1 : -1) + 'deg)' }}>
+                <NPH label={g.color + ' nail ' + g.label} />
+              </div>
+              <div style={{ position: 'absolute', top: 8, right: 8, padding: '3px 10px', background: NC.primary, color: NC.cream, fontFamily: NC.sans, fontSize: 9, fontWeight: 800, borderRadius: 999, border: '1.5px solid ' + NC.cream }}>#{g.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="faq" style={{ padding: '70px 20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 26 }}>
+          <NC_Sticker color={NC.yellow} rotate={-3} style={{ marginBottom: 16 }}>questions?</NC_Sticker>
+          <h2 style={{ fontFamily: NC.display, fontSize: 64, fontWeight: 800, letterSpacing: -2.5, margin: 0 }}>
+            <span style={{ color: NC.primary, fontStyle: 'italic' }}>FAQ.</span>
+          </h2>
+        </div>
+        {NFAQ.map((f, i) => (
+          <button key={i} onClick={() => setOpenFAQ(openFAQ === i ? -1 : i)} style={{
+            display: 'block', width: '100%', textAlign: 'left',
+            background: NC.cream, border: '2px solid ' + NC.purple, borderRadius: 14,
+            padding: '14px 16px', marginBottom: 10, cursor: 'pointer',
+            boxShadow: openFAQ === i ? '3px 3px 0 ' + NC.primary : '3px 3px 0 ' + NC.purple,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 16, background: NC.primary, color: NC.cream, fontFamily: NC.display, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid ' + NC.purple, flexShrink: 0 }}>Q{i + 1}</div>
+                <span style={{ fontFamily: NC.ja, fontSize: 13, fontWeight: 600 }}>{f.q}</span>
+              </div>
+              <span style={{ fontFamily: NC.sans, fontSize: 20, color: NC.primary, fontWeight: 700 }}>{openFAQ === i ? '−' : '+'}</span>
+            </div>
+            {openFAQ === i && <div style={{ fontFamily: NC.ja, fontSize: 12, lineHeight: 1.9, color: NC.fgMid, marginTop: 12, paddingLeft: 44 }}>{f.a}</div>}
+          </button>
+        ))}
+      </section>
+
+      <section id="access" style={{ padding: '70px 20px', background: NC.bgPink }}>
+        <NC_Sticker color={NC.cream} rotate={-3} style={{ marginBottom: 18 }}>come see us</NC_Sticker>
+        <h2 style={{ fontFamily: NC.display, fontSize: 56, fontWeight: 800, letterSpacing: -2.5, margin: 0, lineHeight: 0.95, marginBottom: 22 }}>
+          ACCESS<br/><span style={{ color: NC.primary, fontStyle: 'italic' }}>map.</span>
+        </h2>
+        <div style={{ borderRadius: 22, overflow: 'hidden', height: 220, border: '2.5px solid ' + NC.purple, boxShadow: '5px 5px 0 ' + NC.purple, marginBottom: 22 }}>
+          <NPH label="polish wall interior" />
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {[
+            ['住所', NSALON.address],
+            ['駅', NSALON.station],
+            ['電話', NSALON.phone],
+            ['営業時間', NSALON.hours],
+          ].map(([k, v], i) => (
+            <div key={i} style={{ padding: '14px 16px', background: NC.cream, borderRadius: 12, border: '2px solid ' + NC.purple, display: 'grid', gridTemplateColumns: '70px 1fr', gap: 12 }}>
+              <div style={{ fontFamily: NC.sans, fontSize: 10, fontWeight: 800, color: NC.primary, letterSpacing: 1, textTransform: 'uppercase' }}>{k}</div>
+              <div style={{ fontFamily: NC.ja, fontSize: 12, lineHeight: 1.6 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ padding: '30px 20px 60px' }}>
+        <div style={{ background: NC.primary, color: NC.cream, borderRadius: 28, padding: '40px 24px', border: '2.5px solid ' + NC.purple, boxShadow: '6px 6px 0 ' + NC.purple, position: 'relative', overflow: 'hidden' }}>
+          <NC_Star size={50} color={NC.lime} style={{ position: 'absolute', top: 20, right: 16 }} />
+          <div style={{ position: 'relative' }}>
+            <NC_Sticker color={NC.lime} rotate={-3} style={{ marginBottom: 18 }}>book your seat</NC_Sticker>
+            <h2 style={{ fontFamily: NC.display, fontSize: 64, fontWeight: 800, letterSpacing: -2.5, lineHeight: 0.9, margin: 0 }}>
+              LET'S<br/><span style={{ color: NC.lime, fontStyle: 'italic' }}>MELLO.</span>
+            </h2>
+            <div style={{ marginTop: 24, display: 'grid', gap: 10 }}>
+              <button style={{ background: NC.cream, border: '2.5px solid ' + NC.purple, color: NC.purple, padding: '16px 24px', fontFamily: NC.sans, fontSize: 13, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', borderRadius: 999, boxShadow: '4px 4px 0 ' + NC.purple, textTransform: 'uppercase' }}>Reserve online →</button>
+              <button style={{ background: NC.lime, border: '2.5px solid ' + NC.purple, color: NC.purple, padding: '16px 24px', fontFamily: NC.sans, fontSize: 13, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', borderRadius: 999, boxShadow: '4px 4px 0 ' + NC.purple, textTransform: 'uppercase' }}>LINEで予約</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer style={{ padding: '40px 20px 26px', background: NC.purple, color: NC.cream }}>
+        <div style={{ fontFamily: NC.display, fontSize: 32, fontWeight: 800, color: NC.lime, letterSpacing: -1 }}>MELLO</div>
+        <div style={{ fontFamily: NC.sans, fontSize: 10, letterSpacing: 2, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginTop: 4 }}>nail · harajuku · since 2024</div>
+        <div style={{ fontFamily: NC.ja, fontSize: 11, lineHeight: 1.9, color: 'rgba(255,255,255,0.75)', marginTop: 16 }}>{NSALON.address}<br/>{NSALON.phone}</div>
+        <div style={{ marginTop: 22, paddingTop: 14, borderTop: '2px solid rgba(255,255,255,0.15)', fontFamily: NC.sans, fontSize: 10, color: 'rgba(255,255,255,0.55)', letterSpacing: 1.5, display: 'flex', justifyContent: 'space-between' }}>
+          <div>© 2026 MELLO</div>
+          <div>IG · LINE · TIKTOK</div>
+        </div>
+      </footer>
+
+      {drawer && (
+        <div onClick={() => setDrawer(false)} style={{ position: 'absolute', inset: 0, background: NC.primary, zIndex: 100, padding: '40px 24px' }}>
+          <button style={{ position: 'absolute', top: 14, right: 18, background: NC.lime, border: '2px solid ' + NC.purple, color: NC.purple, fontSize: 18, width: 40, height: 40, borderRadius: 20, cursor: 'pointer', fontWeight: 800 }}>×</button>
+          <div style={{ fontFamily: NC.display, fontSize: 36, fontWeight: 800, color: NC.cream, letterSpacing: -1, marginBottom: 24 }}>MELLO ✦</div>
+          {NNAV.map((n, i) => (
+            <div key={n.id} style={{ padding: '12px 0', borderBottom: '2px solid rgba(255,255,255,0.18)' }}>
+              <div style={{ fontFamily: NC.display, fontSize: 26, fontWeight: 800, color: NC.cream, letterSpacing: -0.5 }}>{n.label}</div>
+              <div style={{ fontFamily: NC.ja, fontSize: 12, color: NC.lime, marginTop: 2, fontWeight: 500 }}>{n.ja}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+window.NCMobile = NCMobile;
+
+</script>
+
+<script type="text/babel" data-presets="env,react">
+function ResponsiveDemo() {
+  const [w, setW] = React.useState(typeof window !== 'undefined' ? window.innerWidth : 1440);
+  const [contentH, setContentH] = React.useState(0);
+  const innerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const onResize = () => setW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const isMobile = w < 800;
+  const baseW = isMobile ? 390 : 1440;
+  const scale = w / baseW;
+
+  React.useLayoutEffect(() => {
+    if (!innerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (innerRef.current) setContentH(innerRef.current.scrollHeight);
+    });
+    ro.observe(innerRef.current);
+    return () => ro.disconnect();
+  }, [isMobile]);
+
+  return (
+    <div className="demo-stage" style={{ height: contentH * scale || undefined }}>
+      <div className="scaler" style={{ width: baseW, transform: 'scale(' + scale + ')' }} ref={innerRef}>
+        {isMobile ? <NCMobile /> : <NCDesktop />}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ResponsiveDemo />);
+</script>
+</body>
+</html>
